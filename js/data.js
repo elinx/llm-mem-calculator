@@ -18,6 +18,11 @@ const MODEL_DATA = {
     { id: "fp8_int8",  label: "FP8 / INT8",  bytes_per_element: 1 },
     { id: "fp4_int4",  label: "FP4 / INT4",  bytes_per_element: 0.5 }
   ],
+  weight_precision_options: [
+    { id: "bf16",     label: "BF16",  bytes_per_element: 2 },
+    { id: "fp8_int8", label: "FP8",   bytes_per_element: 1 },
+    { id: "fp4_int4", label: "FP4",   bytes_per_element: 0.5 }
+  ],
   models: [
     { id:"deepseek-v4-pro", label:"DeepSeek V4 Pro", family:"DeepSeek", formula:"deepseek_v4_hybrid", default_tokens:1024, max_position_embeddings:1048576, source_url:"https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/raw/main/config.json", source_retrieved_at:"2026-05-20", fields:{ num_hidden_layers:61, num_key_value_heads:1, head_dim:512, sliding_window:128, index_head_dim:128, index_topk:1024, compress_ratios:[128,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4] }},
     { id:"deepseek-v4-flash", label:"DeepSeek V4 Flash", family:"DeepSeek", formula:"deepseek_v4_hybrid", default_tokens:1024, max_position_embeddings:1048576, source_url:"https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/main/config.json", source_retrieved_at:"2026-05-20", fields:{ num_hidden_layers:43, num_key_value_heads:1, head_dim:512, sliding_window:128, index_head_dim:128, index_topk:512, compress_ratios:[0,0,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4,128,4] }},
