@@ -229,6 +229,14 @@ function tipIcon(tooltip) {
   return '<span class="tip-icon" data-tooltip="' + tooltip.replace(/"/g, '&quot;') + '">?</span>';
 }
 
+function formatSymbol(text) {
+  return text.replace(/^([A-Za-z]+)_(.+)$/, '$1<sub>$2</sub>');
+}
+
+function getWeightBarColorClass(type) { return WEIGHT_BAR_COLOR_MAP[type] || 'seg-full'; }
+function getWeightBarHex(type) { return WEIGHT_BAR_HEX_MAP[type] || '#4263eb'; }
+function getWeightLegendLabel(type) { return WEIGHT_LEGEND_LABEL_MAP[type] || type; }
+
 document.querySelectorAll('.unit-btn').forEach(function (btn) {
   btn.addEventListener('click', function () {
     document.querySelectorAll('.unit-btn').forEach(function (b) { b.classList.remove('active'); });
@@ -269,12 +277,101 @@ function calculate() {
   if (result.formulas.length > 0) {
     $formulaSection.classList.remove('hidden');
     $formulaTitle.textContent = result.formulaTitle;
-    $formulaBody.innerHTML = result.formulas.map(function (f) {
-      return '<div class="formula-row"><div class="formula-lhs">' +
-        '<span class="pill pill-result">' + f.name + '</span>' +
-        '<span class="formula-eq">=</span></div>' +
-        '<div class="formula-rhs">' + f.expr + '</div></div>';
+    var globalMaxBarBytes = 0;
+    result.formulas.forEach(function (f) {
+      if (f.bar) {
+        f.bar.forEach(function (seg) {
+          if (seg.bytes > globalMaxBarBytes) globalMaxBarBytes = seg.bytes;
+        });
+      }
+    });
+    var formulaRowsHtml = result.formulas.map(function (f) {
+      var expr = f.expr;
+      var vals = Object.assign({}, f.values);
+      var inputNames = { p_wt: 1 };
+      var resultNames = { Attn: 1, Attn_f: 1, Attn_s: 1, Attn_l: 1, Idx: 1, FFN_d: 1, FFN_s: 1, FFN_e: 1, Embed: 1, W_t: 1 };
+      var keys = Object.keys(vals).sort(function (a, b) { return b.length - a.length; });
+      if (keys.length > 0) {
+        var re = new RegExp('\\b(' + keys.map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')\\b', 'g');
+        expr = expr.replace(re, function (match) {
+          var val = vals[match];
+          var tooltipText;
+          if (typeof val === 'number') {
+            tooltipText = (WEIGHT_SYMBOL_NAMES[match] || match) + ' = ' + fmtNum(val);
+          } else {
+            tooltipText = val;
+          }
+          var cls = 'pill';
+          if (inputNames[match]) {
+            cls += ' pill-input';
+          } else if (resultNames[match]) {
+            cls += ' pill-result';
+          } else {
+            cls += ' pill-param';
+          }
+          return '<span class="' + cls + '" data-tooltip="' + tooltipText.replace(/"/g, '&quot;') + '">' + formatSymbol(match) + '</span>';
+        });
+      }
+      expr = expr.replace(/\u230a/g, '<span class="floor">\u230a</span>');
+      expr = expr.replace(/\u230b/g, '<span class="floor">\u230b</span>');
+      var nameVal = f.resultValue !== undefined ? f.resultValue : vals[f.name];
+      var nameTooltip = '';
+      if (nameVal !== undefined) {
+        nameTooltip = typeof nameVal === 'number' ? fmtNum(nameVal) : String(nameVal);
+      }
+      if (f.tip) {
+        nameTooltip = nameTooltip ? nameTooltip + '\n' + f.tip : f.tip;
+      }
+      var namePill = '<span class="pill pill-result" data-tooltip="' + nameTooltip.replace(/"/g, '&quot;') + '">' + formatSymbol(f.name) + '</span>';
+
+      var ibarHtml = '';
+      if (f.bar && f.bar.length > 0) {
+        ibarHtml = '<div class="ibar">';
+        f.bar.forEach(function (seg) {
+          var w = globalMaxBarBytes > 0 ? Math.max(1, (seg.bytes / globalMaxBarBytes) * 120) : 1;
+          ibarHtml += '<div class="seg ' + getWeightBarColorClass(seg.type) + '" style="width:' + w + 'px"></div>';
+        });
+        ibarHtml += '</div>';
+        ibarHtml += '<div class="ibar-val">' + (f.ibarVal || '') + '</div>';
+      }
+
+      return '<div class="formula-row">' +
+        '<div class="formula-lhs">' +
+          namePill +
+          '<span class="formula-eq">=</span>' +
+        '</div>' +
+        '<div class="formula-rhs">' + expr + '</div>' +
+        ibarHtml +
+      '</div>';
     }).join('');
+    var patternHtml = '';
+    if (result.patterns && result.patterns.length > 0) {
+      var maxPatternBytes = 0;
+      result.patterns.forEach(function (p) { if (p.bytes > maxPatternBytes) maxPatternBytes = p.bytes; });
+      patternHtml = '<div class="pattern-section">';
+      patternHtml += '<div class="pattern-title">Layer patterns</div>';
+      result.patterns.forEach(function (p) {
+        patternHtml += '<div class="pattern-row"><div class="pattern-bar">';
+        p.segs.forEach(function (seg) {
+          var segBytes = p.bytes * seg.ratio;
+          var w = maxPatternBytes > 0 ? Math.max(2, (segBytes / maxPatternBytes) * 120) : 2;
+          patternHtml += '<div class="seg ' + getWeightBarColorClass(seg.type) + '" style="width:' + w + 'px"></div>';
+        });
+        patternHtml += '</div>';
+        patternHtml += '<span class="pattern-count">\u00d7' + p.count + '</span>';
+        patternHtml += '<span class="pattern-label">' + p.label + '</span>';
+        patternHtml += '</div>';
+      });
+      if (result.legendTypes && result.legendTypes.length >= 1) {
+        patternHtml += '<div class="layer-bar-legend">';
+        result.legendTypes.forEach(function (t) {
+          patternHtml += '<div class="lbleg"><div class="s" style="background:' + getWeightBarHex(t) + '"></div>' + getWeightLegendLabel(t) + '</div>';
+        });
+        patternHtml += '</div>';
+      }
+      patternHtml += '</div>';
+    }
+    $formulaBody.innerHTML = formulaRowsHtml + patternHtml;
   } else {
     $formulaSection.classList.add('hidden');
   }
