@@ -49,6 +49,7 @@ var $metricsCompact = document.getElementById('metricsCompact');
 var $formulaSection = document.getElementById('formulaSection');
 var $formulaTitle = document.getElementById('formulaTitle');
 var $formulaBody = document.getElementById('formulaBody');
+var $topologySection = document.getElementById('topologySection');
 var $stageSection = document.getElementById('stageSection');
 var $breakdownGrid = document.getElementById('breakdownGrid');
 var $breakdownToggle = document.getElementById('breakdownToggle');
@@ -479,6 +480,217 @@ function renderFormulaRows(formulas) {
   }).join('');
 }
 
+var TOPO_PALETTE = {
+  attn: '#0d9488',
+  kv: '#6366f1',
+  shared: '#ea580c',
+  epBase: [175, 70, 72]
+};
+
+function epShade(base, g) {
+  var h = base[0] + g * 3, s = base[1] - g * 3, l = base[2] - g * 5;
+  return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+}
+
+function topoGib(bytes) {
+  return (bytes / Math.pow(1024, 3)).toFixed(2) + ' GiB';
+}
+
+function renderTopology(model, result, opts) {
+  var wf = model.weight_fields || {};
+  var nRouted = wf.n_routed_experts || 0;
+  var nShared = wf.n_shared_experts || 0;
+  var wb = result.weightBreakdown;
+  var kb = result.kvBreakdown;
+  var tp = opts.tp || 1;
+  var ep = opts.ep || 1;
+  var dp = opts.dp || 1;
+  var pp = opts.pp || 1;
+  var cp = opts.cp || 1;
+  var isMoE = nRouted > 0;
+  var hasDense = wb.denseFfnPerGPU > 0;
+  var numAttn = Math.min(dp, 3);
+  var expertsPerGPU = nRouted > 0 ? Math.ceil(nRouted / ep) : 0;
+  var p = TOPO_PALETTE;
+  var isDisagg = opts._disaggLabel;
+
+  var html = '';
+  if (isDisagg) html += '<div class="topo-disagg-label">' + isDisagg + '</div>';
+
+  html += '<div class="topo">';
+  html += '<div class="attn-stack">';
+
+  for (var a = 0; a < numAttn; a++) {
+    html += '<div class="block">';
+    html += '<div class="block-title"><div class="block-title-dot" style="background:' + p.attn + '"></div>Attention' + (dp > 1 ? ' ' + (a + 1) : '') + '</div>';
+
+    html += '<div class="row">';
+    html += '<div class="row-label">W<sub>qkv</sub> <span class="row-hint">TP column split (by heads)</span> <span class="row-gib">' + topoGib(wb.attnPerGPU) + '</span></div>';
+    html += '<div class="col-bar" style="height:32px">';
+    for (var g = 0; g < tp; g++) {
+      html += '<div class="col-shard" style="background:' + p.attn + '" data-tooltip="GPU ' + g + ': QKV shard ' + (g + 1) + '/' + tp + '">' + g + '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="row">';
+    html += '<div class="row-label">W<sub>o</sub> <span class="row-hint">TP row split (by heads)</span></div>';
+    html += '<div class="stripe-bar" style="height:32px;gap:1px">';
+    for (var g = 0; g < tp; g++) {
+      html += '<div class="stripe-seg" style="background:' + p.attn + '" data-tooltip="GPU ' + g + ': Wo shard ' + (g + 1) + '/' + tp + '"></div>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="row">';
+    html += '<div class="row-label">KV Cache <span class="row-hint">TP split (by heads)</span> <span class="row-gib">' + topoGib(kb.kvPerGPU) + '</span></div>';
+    html += '<div class="kv-bar" style="height:16px">';
+    for (var g = 0; g < tp; g++) {
+      html += '<div class="kv-shard" style="background:' + p.kv + '" data-tooltip="GPU ' + g + ': KV shard ' + (g + 1) + '/' + tp + '">' + g + '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+
+  html += '<div class="gather" id="gatherZone' + (isDisagg || '') + '"></div>';
+
+  html += '<div class="block block-moe">';
+  var moeTitle = isMoE ? 'MLP / MoE' : 'MLP';
+  html += '<div class="block-title"><div class="block-title-dot" style="background:' + p.shared + '"></div>' + moeTitle + '</div>';
+
+  if (hasDense) {
+    html += '<div class="row">';
+    html += '<div class="row-label">Dense FFN <span class="row-hint">TP col + row</span> <span class="row-gib">' + topoGib(wb.denseFfnPerGPU) + '</span></div>';
+    html += '<div class="col-bar" style="height:14px">';
+    for (var g = 0; g < tp; g++) {
+      html += '<div class="col-shard" style="background:' + p.shared + '" data-tooltip="GPU ' + g + ': Dense Gate/Up shard"></div>';
+    }
+    html += '</div>';
+    html += '<div class="stripe-bar" style="height:14px;margin-top:2px;gap:1px">';
+    for (var g = 0; g < tp; g++) {
+      html += '<div class="stripe-seg" style="background:' + p.shared + '" data-tooltip="GPU ' + g + ': Dense Down shard"></div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+
+  if (isMoE) {
+    if (nShared > 0) {
+      html += '<div class="row">';
+      html += '<div class="row-label">Shared Expert <span class="row-hint">TP col + row</span> <span class="row-gib">' + topoGib(wb.sharedExpertPerGPU) + '</span></div>';
+      html += '<div class="col-bar" style="height:14px">';
+      for (var g = 0; g < tp; g++) {
+        html += '<div class="col-shard" style="background:' + p.shared + '" data-tooltip="GPU ' + g + ': Shared Gate/Up shard"></div>';
+      }
+      html += '</div>';
+      html += '<div class="stripe-bar" style="height:14px;margin-top:2px;gap:1px">';
+      for (var g = 0; g < tp; g++) {
+        html += '<div class="stripe-seg" style="background:' + p.shared + '" data-tooltip="GPU ' + g + ': Shared Down shard"></div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    html += '<div class="row">';
+    html += '<div class="row-label">Routed Experts <span class="row-hint">EP=' + ep + ' groups, TP col+row inside each</span> <span class="row-gib" style="color:var(--ep)">' + topoGib(wb.routedExpertPerGPU) + '</span></div>';
+    html += '<div class="ep-groups">';
+    for (var g = 0; g < ep; g++) {
+      var eStart = g * expertsPerGPU + 1;
+      var eEnd = (g + 1) * expertsPerGPU;
+      var shade = epShade(p.epBase, g);
+      html += '<div class="ep-group" style="background:var(--surface);border-color:' + shade + '">';
+      html += '<div class="ep-header" style="color:' + shade + '">E' + eStart + '&ndash;' + eEnd + '</div>';
+      html += '<div class="ep-gpu">GPU ' + g + '</div>';
+      html += '<div class="ep-bar-label">G/U</div>';
+      html += '<div class="mini-col">';
+      for (var t = 0; t < tp; t++) {
+        html += '<div class="mini-col-s" style="background:' + shade + '" data-tooltip="GPU ' + g + ': Gate/Up TP' + t + '"></div>';
+      }
+      html += '</div>';
+      html += '<div class="ep-bar-label">Down</div>';
+      html += '<div class="mini-row">';
+      for (var t = 0; t < tp; t++) {
+        html += '<div class="mini-row-s" style="background:' + shade + '" data-tooltip="GPU ' + g + ': Down TP' + t + '"></div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+
+  html += '</div>';
+  html += '</div>';
+
+  if (pp > 1) {
+    html += '<div class="topo-note-card"><span class="topo-note-badge topo-note-pp">PP=' + pp + '</span>PP cut happens between layers, not within a layer</div>';
+  }
+  if (cp > 1) {
+    html += '<div class="topo-note-card"><span class="topo-note-badge topo-note-cp">CP=' + cp + '</span>CP&gt;1 divides KV along sequence-length dimension across CP ranks.</div>';
+  }
+
+  html += '<div class="topo-note">Showing bottleneck stage per-GPU weight partitioning.' + (isMoE ? ' EP=' + ep + ' gives each GPU ' + expertsPerGPU + '/' + nRouted + ' experts.' : '') + ' TP=' + tp + ' splits attention' + (isMoE ? ', shared expert' : '') + ', and embedding across ' + tp + ' ranks.</div>';
+
+  return html;
+}
+
+function renderDisaggTopology(model, result, prefillOpts, decodeOpts) {
+  var pre = result.prefill;
+  var dec = result.decode;
+
+  var html = '<div class="topo-section">';
+  html += '<div class="topo-title">Per-Layer Weight Partitioning</div>';
+  html += '<div class="topo-disagg-grid">';
+
+  html += '<div class="topo-disagg-panel">';
+  html += renderTopology(model, pre, Object.assign({}, prefillOpts, { _disaggLabel: 'Prefill' }));
+  html += '</div>';
+
+  html += '<div class="topo-disagg-panel">';
+  html += renderTopology(model, dec, Object.assign({}, decodeOpts, { _disaggLabel: 'Decode' }));
+  html += '</div>';
+
+  html += '</div>';
+  html += '</div>';
+
+  return html;
+}
+
+function drawGather() {
+  var zones = document.querySelectorAll('.gather');
+  zones.forEach(function (zone) {
+    var stack = zone.previousElementSibling;
+    var moe = zone.nextElementSibling;
+    if (!stack || !moe) return;
+    var zr = zone.getBoundingClientRect();
+    var mr = moe.getBoundingClientRect();
+    var moeMidY = mr.top + mr.height / 2 - zr.top;
+    var attnBlocks = stack.querySelectorAll('.block');
+    var w = zr.width;
+    var h = zr.height;
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" fill="none" style="position:absolute;inset:0;width:100%;height:100%">';
+    var sw = 'stroke="var(--text3)" stroke-width="1.2"';
+    var bendX = Math.round(w * 0.4);
+    attnBlocks.forEach(function (blk) {
+      var br = blk.getBoundingClientRect();
+      var fromY = br.top + br.height / 2 - zr.top;
+      var toY = moeMidY;
+      if (Math.abs(fromY - toY) < 2) {
+        svg += '<line x1="0" y1="' + fromY.toFixed(1) + '" x2="' + (w - 6).toFixed(1) + '" y2="' + toY.toFixed(1) + '" ' + sw + '/>';
+      } else {
+        svg += '<path d="M0,' + fromY.toFixed(1) + ' L' + bendX + ',' + fromY.toFixed(1) + ' L' + bendX + ',' + toY.toFixed(1) + ' L' + (w - 6).toFixed(1) + ',' + toY.toFixed(1) + '" ' + sw + '/>';
+      }
+    });
+    svg += '<polygon points="' + (w - 6) + ',' + (moeMidY - 3).toFixed(1) + ' ' + w + ',' + moeMidY.toFixed(1) + ' ' + (w - 6) + ',' + (moeMidY + 3).toFixed(1) + '" fill="var(--text3)"/>';
+    svg += '</svg>';
+    zone.innerHTML = svg;
+  });
+}
+
 function calculate() {
   var model = getModel();
   if (!model) {
@@ -488,6 +700,7 @@ function calculate() {
     $gpuFitSection.innerHTML = '';
     $metricsCompact.innerHTML = '';
     $formulaSection.classList.add('hidden');
+    $topologySection.innerHTML = '';
     $stageSection.innerHTML = '';
     $breakdownGrid.innerHTML = '';
     $noteSection.textContent = '';
@@ -536,11 +749,11 @@ function calculate() {
   if (result.mode === 'disaggregated') {
     renderDisaggregated(result, model, opts);
   } else {
-    renderUnified(result);
+    renderUnified(result, model, opts);
   }
 }
 
-function renderUnified(result) {
+function renderUnified(result, model, opts) {
   $totalPerGpu.textContent = formatTotal(result.totalPerGPU);
   $totalUnit.textContent = getUnitLabel();
 
@@ -567,6 +780,9 @@ function renderUnified(result) {
     $formulaSection.classList.add('hidden');
   }
 
+  $topologySection.innerHTML = '<div class="topo-section"><div class="topo-title">Per-Layer Weight Partitioning</div>' + renderTopology(model, result, opts) + '</div>';
+  requestAnimationFrame(drawGather);
+
   if (result.stages && result.stages.length > 1) {
     var maxStageBytes = 0;
     result.stages.forEach(function (s) { if (s.totalPerGPU > maxStageBytes) maxStageBytes = s.totalPerGPU; });
@@ -586,7 +802,6 @@ function renderUnified(result) {
   $breakdownGrid.innerHTML = buildBreakdownRows(result);
 
   $noteSection.textContent = 'Per-GPU estimates use \u00f7TP for attention/dense/shared-expert/embed, \u00f7EP for routed experts. Indexer TP may differ from model TP. Excludes activations, framework overhead, and communication buffers.';
-  var model = getModel();
   $sourceLink.href = model.source_url;
   $sourceLink.textContent = 'Source: ' + model.source_url;
 }
@@ -617,6 +832,9 @@ function renderDisaggregated(result, model, opts) {
   $gpuFitSection.innerHTML = html;
   $metricsCompact.innerHTML = '';
   $formulaSection.classList.add('hidden');
+
+  $topologySection.innerHTML = renderDisaggTopology(model, result, opts.prefill, opts.decode);
+  requestAnimationFrame(drawGather);
 
   $stageSection.innerHTML = '';
 
