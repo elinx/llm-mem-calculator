@@ -1379,7 +1379,7 @@ input[type="number"] { font-family: var(--mono); font-size: 0.85rem; }
 
 .parallel-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
@@ -1389,12 +1389,28 @@ input[type="number"] { font-family: var(--mono); font-size: 0.85rem; }
   gap: 6px;
 }
 
+.parallel-single {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: 50%;
+}
+
 .parallel-label {
   font-family: var(--mono);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text2);
   min-width: 24px;
+}
+
+.parallel-label-wide {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text2);
+  min-width: 56px;
 }
 
 .parallel-input {
@@ -1630,7 +1646,7 @@ input[type="number"] { font-family: var(--mono); font-size: 0.85rem; }
 
 @media (max-width: 700px) {
   .parallel-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
   .disagg-container {
     grid-template-columns: 1fr;
