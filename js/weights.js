@@ -179,13 +179,6 @@ function getWtPrecBytes() {
   return opts.find(function (p) { return p.id === wtPrecValue; }).bytes_per_element;
 }
 
-function getWtPrecLabel() {
-  var opts = MODEL_DATA.weight_precision_options;
-  if (!opts) return 'BF16';
-  var found = opts.find(function (p) { return p.id === wtPrecValue; });
-  return found ? found.label : 'BF16';
-}
-
 function initSegControl(container, callback) {
   var btns = container.querySelectorAll('.seg-option');
   btns.forEach(function (btn) {
@@ -270,8 +263,8 @@ function calculate() {
   var wtPrecB = getWtPrecBytes();
   var result = calcWeight(model, wtPrecB);
 
-  $totalParams.textContent = formatTotal(result.totalBytes) + ' ' + getUnitLabel();
-  $totalBytes.textContent = formatParams(result.totalParams) + ' params \u00b7 ' + getWtPrecLabel();
+  $totalParams.textContent = formatTotal(result.totalBytes);
+  $totalBytes.textContent = getUnitLabel();
 
   var metricsHtml = '';
   metricsHtml += '<span class="metric-item">Attention <span class="metric-val">' + formatMetric(result.attnParams * wtPrecB) + '</span></span>';
