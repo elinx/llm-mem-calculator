@@ -17,7 +17,7 @@ var $breakdownToggle = document.getElementById('breakdownToggle');
 
 var selectedModelId = 'deepseek-v4-pro';
 var currentUnit = 'gib';
-var wtPrecValue = 'bf16';
+var wtPrecValue = 'fp8_int8';
 
 function initTheme() {
   var stored = localStorage.getItem('kv-theme');
@@ -179,6 +179,13 @@ function getWtPrecBytes() {
   return opts.find(function (p) { return p.id === wtPrecValue; }).bytes_per_element;
 }
 
+function getWtPrecLabel() {
+  var opts = MODEL_DATA.weight_precision_options;
+  if (!opts) return 'BF16';
+  var found = opts.find(function (p) { return p.id === wtPrecValue; });
+  return found ? found.label : 'BF16';
+}
+
 function initSegControl(container, callback) {
   var btns = container.querySelectorAll('.seg-option');
   btns.forEach(function (btn) {
@@ -263,8 +270,8 @@ function calculate() {
   var wtPrecB = getWtPrecBytes();
   var result = calcWeight(model, wtPrecB);
 
-  $totalParams.textContent = formatParams(result.totalParams);
-  $totalBytes.textContent = formatTotal(result.totalBytes) + ' ' + getUnitLabel();
+  $totalParams.textContent = formatTotal(result.totalBytes) + ' ' + getUnitLabel();
+  $totalBytes.textContent = formatParams(result.totalParams) + ' params \u00b7 ' + getWtPrecLabel();
 
   var metricsHtml = '';
   metricsHtml += '<span class="metric-item">Attention <span class="metric-val">' + formatMetric(result.attnParams * wtPrecB) + '</span></span>';

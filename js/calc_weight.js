@@ -183,6 +183,11 @@ function calcWeight(model, wtPrecB) {
     var Wo_mla = (n_q * d_v) * h;
     var attnPerLayer = Wqa + Wqb + Wkva + Wkvb + Wo_mla;
 
+    var idxHd = f.index_head_dim || 0;
+    var idxHeads = f.index_n_heads || 0;
+    var idxPerLayer = (formula === 'dsa_mla' && idxHeads > 0) ? h * (idxHeads * idxHd) : 0;
+    var idxParams = idxPerLayer > 0 ? L * idxPerLayer : 0;
+
     var I = wf.intermediate_size || 0;
     var denseFfnPerLayer = ffnMats * h * I;
 
@@ -200,7 +205,7 @@ function calcWeight(model, wtPrecB) {
       if (isMoeLayer(wf, i)) { moeLayerCount++; } else { denseLayerCount++; }
     }
 
-    attnParams = L * attnPerLayer;
+    attnParams = L * attnPerLayer + idxParams;
     ffnDenseParams = denseLayerCount * denseFfnPerLayer;
     ffnSharedParams = moeLayerCount * sharedPerLayer;
     ffnExpertParams = moeLayerCount * expertPerLayer;
@@ -212,6 +217,9 @@ function calcWeight(model, wtPrecB) {
     formulas = [
       { name: 'Attn', tip: 'MLA attention: Q LoRA down/up + KV LoRA down/up + O projection.', expr: 'h\u00d7q_r + q_r\u00d7n_q\u00d7qk + h\u00d7(d_c+d_r) + d_c\u00d7n_q\u00d7(qk_nope+d_v) + n_q\u00d7d_v\u00d7h', values: { h: h, q_r: qLoraRank, n_q: n_q, qk: qkHd, d_c: kvLoraRank, d_r: qkRopeHd, qk_nope: qkNopeHd, d_v: d_v }, resultValue: attnPerLayer, bar: [{ type: 'attn', bytes: attnPerLayer * wtPrecB }], ibarVal: fmtWNum(attnPerLayer) },
     ];
+    if (idxPerLayer > 0) {
+      formulas.push({ name: 'Idx', tip: 'Sparse index key projection per layer.', expr: 'h\u00d7h_idx\u00d7d_idx', values: { h: h, h_idx: idxHeads, d_idx: idxHd }, resultValue: idxPerLayer, bar: [{ type: 'attn', bytes: idxPerLayer * wtPrecB }], ibarVal: fmtWNum(idxPerLayer) });
+    }
     if (denseLayerCount > 0) {
       formulas.push({ name: 'FFN_d', tip: 'Dense FFN per layer (' + ffnMats + ' matrices).', expr: ffnMats + '\u00d7h\u00d7I', values: { h: h, I: I }, resultValue: denseFfnPerLayer, bar: [{ type: 'ffn-dense', bytes: denseFfnPerLayer * wtPrecB }], ibarVal: fmtWNum(denseFfnPerLayer) });
     }
@@ -259,6 +267,11 @@ function calcWeight(model, wtPrecB) {
       { label: 'V head dim', value: fmtWNum(d_v) },
       { label: 'Attention per layer', value: fmtWNum(attnPerLayer) },
     ];
+    if (idxPerLayer > 0) {
+      breakdown.push({ label: 'Index heads', value: fmtWNum(idxHeads) });
+      breakdown.push({ label: 'Index head dim', value: fmtWNum(idxHd) });
+      breakdown.push({ label: 'Index projection per layer', value: fmtWNum(idxPerLayer) });
+    }
     if (denseLayerCount > 0) {
       breakdown.push({ label: 'Dense FFN layers', value: fmtWNum(denseLayerCount) });
       breakdown.push({ label: 'Dense FFN per layer', value: fmtWNum(denseFfnPerLayer) });
@@ -289,6 +302,20 @@ function calcWeight(model, wtPrecB) {
     var WoUp = (oLoraRank * oGroups) * h;
     var attnPerLayer = Wqa + Wqb + Wk + Wv + WoDown + WoUp;
 
+    var idxHd = f.index_head_dim || 0;
+    var idxHeads = f.index_n_heads || 0;
+    var compressRatios = f.compress_ratios;
+    var idxLayerCount = 0;
+    if (compressRatios) {
+      for (var ci = 0; ci < compressRatios.length; ci++) {
+        if (compressRatios[ci] > 0) idxLayerCount++;
+      }
+    } else if (idxHeads > 0) {
+      idxLayerCount = L;
+    }
+    var idxPerLayer = idxHeads > 0 ? h * (idxHeads * idxHd) : 0;
+    var idxParams = idxLayerCount * idxPerLayer;
+
     var nRouted = wf.n_routed_experts || 0;
     var nShared = wf.n_shared_experts || 0;
     var Im = wf.moe_intermediate_size || 0;
@@ -306,7 +333,7 @@ function calcWeight(model, wtPrecB) {
     var I = wf.intermediate_size || 0;
     var denseFfnPerLayer = ffnMats * h * I;
 
-    attnParams = L * attnPerLayer;
+    attnParams = L * attnPerLayer + idxParams;
     ffnDenseParams = denseLayerCount * denseFfnPerLayer;
     ffnSharedParams = moeLayerCount * sharedPerLayer;
     ffnExpertParams = moeLayerCount * expertPerLayer;
@@ -318,6 +345,9 @@ function calcWeight(model, wtPrecB) {
     formulas = [
       { name: 'Attn', tip: 'V4 attention: Q LoRA + K/V direct + O grouped LoRA.', expr: 'h\u00d7q_r + q_r\u00d7n_q\u00d7d_h + 2\u00d7h\u00d7d_h + n_q\u00d7d_h\u00d7(o_r\u00d7g) + o_r\u00d7g\u00d7h', values: { h: h, q_r: qLoraRank, n_q: n_q, d_h: hd, o_r: oLoraRank, g: oGroups }, resultValue: attnPerLayer, bar: [{ type: 'attn', bytes: attnPerLayer * wtPrecB }], ibarVal: fmtWNum(attnPerLayer) },
     ];
+    if (idxLayerCount > 0 && idxPerLayer > 0) {
+      formulas.push({ name: 'Idx', tip: 'Sparse index key projection per index layer.', expr: 'h\u00d7h_idx\u00d7d_idx', values: { h: h, h_idx: idxHeads, d_idx: idxHd }, resultValue: idxPerLayer, bar: [{ type: 'attn', bytes: idxPerLayer * wtPrecB }], ibarVal: fmtWNum(idxPerLayer) });
+    }
     if (denseLayerCount > 0) {
       formulas.push({ name: 'FFN_d', tip: 'Dense FFN per layer.', expr: ffnMats + '\u00d7h\u00d7I', values: { h: h, I: I }, resultValue: denseFfnPerLayer, bar: [{ type: 'ffn-dense', bytes: denseFfnPerLayer * wtPrecB }], ibarVal: fmtWNum(denseFfnPerLayer) });
     }
@@ -361,6 +391,12 @@ function calcWeight(model, wtPrecB) {
       { label: 'O groups', value: fmtWNum(oGroups) },
       { label: 'Attention per layer', value: fmtWNum(attnPerLayer) },
     ];
+    if (idxLayerCount > 0 && idxPerLayer > 0) {
+      breakdown.push({ label: 'Index layers', value: fmtWNum(idxLayerCount) });
+      breakdown.push({ label: 'Index heads', value: fmtWNum(idxHeads) });
+      breakdown.push({ label: 'Index head dim', value: fmtWNum(idxHd) });
+      breakdown.push({ label: 'Index projection per layer', value: fmtWNum(idxPerLayer) });
+    }
     if (denseLayerCount > 0) {
       breakdown.push({ label: 'Dense FFN layers', value: fmtWNum(denseLayerCount) });
       breakdown.push({ label: 'Dense FFN per layer', value: fmtWNum(denseFfnPerLayer) });
