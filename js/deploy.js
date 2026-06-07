@@ -6,6 +6,7 @@ var $wtPrecSeg = document.getElementById('wtPrecSeg');
 var $kvPrecSeg = document.getElementById('kvPrecSeg');
 var $idxPrecSeg = document.getElementById('idxPrecSeg');
 var $idxPrecField = document.getElementById('idxPrecField');
+var $unifiedParallel = document.getElementById('unifiedParallel');
 var $ctxInput = document.getElementById('ctxInput');
 var $ctxPresets = document.getElementById('ctxPresets');
 var $batchInput = document.getElementById('batchInput');
@@ -18,6 +19,7 @@ var $tpInput = document.getElementById('tpInput');
 var $ppInput = document.getElementById('ppInput');
 var $epInput = document.getElementById('epInput');
 var $epItem = document.getElementById('epItem');
+var $cpInput = document.getElementById('cpInput');
 var $dpInput = document.getElementById('dpInput');
 var $idxTpInput = document.getElementById('idxTpInput');
 var $idxTpField = document.getElementById('idxTpField');
@@ -26,9 +28,15 @@ var $modeSeg = document.getElementById('modeSeg');
 var $disaggControls = document.getElementById('disaggControls');
 var $prefillTpInput = document.getElementById('prefillTpInput');
 var $prefillEpInput = document.getElementById('prefillEpInput');
+var $prefillPpInput = document.getElementById('prefillPpInput');
+var $prefillCpInput = document.getElementById('prefillCpInput');
+var $prefillDpInput = document.getElementById('prefillDpInput');
 var $prefillEpItem = document.getElementById('prefillEpItem');
 var $decodeTpInput = document.getElementById('decodeTpInput');
 var $decodeEpInput = document.getElementById('decodeEpInput');
+var $decodePpInput = document.getElementById('decodePpInput');
+var $decodeCpInput = document.getElementById('decodeCpInput');
+var $decodeDpInput = document.getElementById('decodeDpInput');
 var $decodeEpItem = document.getElementById('decodeEpItem');
 var $absorptionToggle = document.getElementById('absorptionToggle');
 var $absorptionField = document.getElementById('absorptionField');
@@ -261,6 +269,7 @@ initSegControl($kvPrecSeg, function (val) { kvPrecValue = val; calculate(); });
 initSegControl($idxPrecSeg, function (val) { idxPrecValue = val; calculate(); });
 initSegControl($modeSeg, function (val) {
   servingMode = val;
+  $unifiedParallel.style.display = val === 'unified' ? '' : 'none';
   $disaggControls.style.display = val === 'disaggregated' ? '' : 'none';
   updateConditionalFields();
   calculate();
@@ -294,8 +303,9 @@ $batchInput.addEventListener('input', function () {
   calculate();
 });
 
-[$tpInput, $ppInput, $epInput, $dpInput, $idxTpInput,
- $prefillTpInput, $prefillEpInput, $decodeTpInput, $decodeEpInput].forEach(function (el) {
+[$tpInput, $ppInput, $epInput, $cpInput, $dpInput, $idxTpInput,
+ $prefillTpInput, $prefillPpInput, $prefillEpInput, $prefillCpInput, $prefillDpInput,
+ $decodeTpInput, $decodePpInput, $decodeEpInput, $decodeCpInput, $decodeDpInput].forEach(function (el) {
   el.addEventListener('input', function () { calculate(); });
 });
 
@@ -506,11 +516,17 @@ function calculate() {
   if (servingMode === 'disaggregated') {
     opts.prefill = {
       tp: parseInt($prefillTpInput.value) || 1,
+      pp: parseInt($prefillPpInput.value) || 1,
       ep: parseInt($prefillEpInput.value) || 1,
+      cp: parseInt($prefillCpInput.value) || 1,
+      dp: parseInt($prefillDpInput.value) || 1,
     };
     opts.decode = {
       tp: parseInt($decodeTpInput.value) || 1,
+      pp: parseInt($decodePpInput.value) || 1,
       ep: parseInt($decodeEpInput.value) || 1,
+      cp: parseInt($decodeCpInput.value) || 1,
+      dp: parseInt($decodeDpInput.value) || 1,
       absorption: $absorptionToggle.checked,
     };
   }
@@ -584,13 +600,13 @@ function renderDisaggregated(result, model, opts) {
   $ibarSection.innerHTML = '';
 
   var html = '<div class="disagg-container">';
-  html += '<div class="disagg-panel"><div class="disagg-label">Prefill (TP=' + opts.prefill.tp + ', EP=' + opts.prefill.ep + ')</div>';
+    html += '<div class="disagg-panel"><div class="disagg-label">Prefill (TP=' + opts.prefill.tp + ', PP=' + opts.prefill.pp + ', EP=' + opts.prefill.ep + ')</div>';
   html += '<div class="disagg-total">' + formatMetric(pre.totalPerGPU) + '</div>';
   html += renderIbar(pre.ibarSegments, pre.totalPerGPU);
   html += renderGpuFit(pre.gpuFit);
   html += '<div class="disagg-metrics">Weights: ' + formatMetric(pre.weightPerGPU) + ' \u00b7 KV: ' + formatMetric(pre.kvPerGPU) + ' \u00b7 GPUs: ' + pre.totalGPUs + '</div>';
   html += '</div>';
-  html += '<div class="disagg-panel"><div class="disagg-label">Decode (TP=' + opts.decode.tp + ', EP=' + opts.decode.ep + ')</div>';
+    html += '<div class="disagg-panel"><div class="disagg-label">Decode (TP=' + opts.decode.tp + ', PP=' + opts.decode.pp + ', EP=' + opts.decode.ep + ')</div>';
   html += '<div class="disagg-total">' + formatMetric(dec.totalPerGPU) + '</div>';
   html += renderIbar(dec.ibarSegments, dec.totalPerGPU);
   html += renderGpuFit(dec.gpuFit);

@@ -33,15 +33,17 @@ function calcDeploy(model, opts) {
   if (opts.mode === 'disaggregated') {
     var preOpts = Object.assign({}, opts, {
       tp: opts.prefill.tp,
+      pp: opts.prefill.pp,
       ep: opts.prefill.ep,
-      pp: opts.pp,
-      dp: opts.dp,
+      cp: opts.prefill.cp,
+      dp: opts.prefill.dp,
     });
     var decOpts = Object.assign({}, opts, {
       tp: opts.decode.tp,
+      pp: opts.decode.pp,
       ep: opts.decode.ep,
-      pp: opts.pp,
-      dp: opts.dp,
+      cp: opts.decode.cp,
+      dp: opts.decode.dp,
     });
     var preResult = calcDeployUnified(model, preOpts);
     var decResult = calcDeployUnified(model, decOpts);
@@ -63,6 +65,7 @@ function calcDeployUnified(model, opts) {
   var pp = opts.pp || 1;
   var ep = opts.ep || 1;
   var dp = opts.dp || 1;
+  var cp = opts.cp || 1;
   var idxTp = opts.idxTp || tp;
 
   var f = model.fields;
@@ -121,8 +124,8 @@ function calcDeployUnified(model, opts) {
 
     var sWeightPerGPU = sAttnPerGPU + sDenseFfnPerGPU + sSharedExpertPerGPU + sRoutedExpertPerGPU + sEmbedPerGPU;
 
-    var sKvPerGPU = stageLayerCount * kvPerLayerSingle * opts.batch / tp;
-    var sIdxPerGPU = stageLayerCount * idxPerLayerSingle * opts.batch / idxTp;
+    var sKvPerGPU = stageLayerCount * kvPerLayerSingle * opts.batch / (tp * cp);
+    var sIdxPerGPU = stageLayerCount * idxPerLayerSingle * opts.batch / (idxTp * cp);
 
     var sTotalPerGPU = sWeightPerGPU + sKvPerGPU + sIdxPerGPU;
 
@@ -176,7 +179,7 @@ function calcDeployUnified(model, opts) {
   var gpuUsage = maxStageTotalPerGPU / gpuVram;
   var gpuFits = gpuUsage <= 1.0;
 
-  var formulaTitle = model.label + ' per-GPU (TP=' + tp + ', PP=' + pp + ', EP=' + ep + ')';
+  var formulaTitle = model.label + ' per-GPU (TP=' + tp + ', PP=' + pp + ', EP=' + ep + (cp > 1 ? ', CP=' + cp : '') + ')';
   var formulas = buildDeployFormulas(model, opts, weightResult, kvResult, stages);
 
   var ibarSegments = bottleneckStage.ibar;

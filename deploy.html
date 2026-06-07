@@ -121,39 +121,38 @@
       <div class="field-sep"></div>
 
       <div class="field">
-        <label>Parallelism</label>
-        <div class="parallel-grid">
-          <div class="parallel-item">
-            <span class="parallel-label">TP</span>
-            <input class="text-input parallel-input" type="number" id="tpInput" value="8" min="1" max="256" step="1">
-          </div>
-          <div class="parallel-item">
-            <span class="parallel-label">PP</span>
-            <input class="text-input parallel-input" type="number" id="ppInput" value="1" min="1" max="64" step="1">
-          </div>
-          <div class="parallel-item" id="epItem">
-            <span class="parallel-label">EP</span>
-            <input class="text-input parallel-input" type="number" id="epInput" value="8" min="1" max="256" step="1">
-          </div>
-          <div class="parallel-item">
-            <span class="parallel-label">DP</span>
-            <input class="text-input parallel-input" type="number" id="dpInput" value="1" min="1" max="256" step="1">
-          </div>
-        </div>
-      </div>
-
-      <div class="field" id="idxTpField" style="display:none">
-        <label>Indexer TP <span class="field-hint" id="idxTpHint"></span></label>
-        <input class="text-input" type="number" id="idxTpInput" value="8" min="1" max="256" step="1">
-      </div>
-
-      <div class="field-sep"></div>
-
-      <div class="field">
         <label>Serving mode</label>
         <div class="seg-control" id="modeSeg">
           <button class="seg-option active" data-value="unified">Unified</button>
           <button class="seg-option" data-value="disaggregated">Disaggregated</button>
+        </div>
+      </div>
+
+      <div id="unifiedParallel">
+        <div class="field">
+          <label>Parallelism</label>
+          <div class="parallel-grid">
+            <div class="parallel-item">
+              <span class="parallel-label">TP</span>
+              <input class="text-input parallel-input" type="number" id="tpInput" value="8" min="1" max="256" step="1">
+            </div>
+            <div class="parallel-item">
+              <span class="parallel-label">PP</span>
+              <input class="text-input parallel-input" type="number" id="ppInput" value="1" min="1" max="64" step="1">
+            </div>
+            <div class="parallel-item" id="epItem">
+              <span class="parallel-label">EP</span>
+              <input class="text-input parallel-input" type="number" id="epInput" value="8" min="1" max="256" step="1">
+            </div>
+            <div class="parallel-item">
+              <span class="parallel-label">CP</span>
+              <input class="text-input parallel-input" type="number" id="cpInput" value="1" min="1" max="256" step="1">
+            </div>
+          </div>
+          <div class="parallel-single">
+            <span class="parallel-label-wide">Attn DP</span>
+            <input class="text-input parallel-input" type="number" id="dpInput" value="1" min="1" max="256" step="1">
+          </div>
         </div>
       </div>
 
@@ -165,10 +164,22 @@
               <span class="parallel-label">TP</span>
               <input class="text-input parallel-input" type="number" id="prefillTpInput" value="8" min="1" max="256" step="1">
             </div>
+            <div class="parallel-item">
+              <span class="parallel-label">PP</span>
+              <input class="text-input parallel-input" type="number" id="prefillPpInput" value="1" min="1" max="64" step="1">
+            </div>
             <div class="parallel-item" id="prefillEpItem">
               <span class="parallel-label">EP</span>
               <input class="text-input parallel-input" type="number" id="prefillEpInput" value="8" min="1" max="256" step="1">
             </div>
+            <div class="parallel-item">
+              <span class="parallel-label">CP</span>
+              <input class="text-input parallel-input" type="number" id="prefillCpInput" value="1" min="1" max="256" step="1">
+            </div>
+          </div>
+          <div class="parallel-single">
+            <span class="parallel-label-wide">Attn DP</span>
+            <input class="text-input parallel-input" type="number" id="prefillDpInput" value="1" min="1" max="256" step="1">
           </div>
         </div>
         <div class="field">
@@ -178,10 +189,22 @@
               <span class="parallel-label">TP</span>
               <input class="text-input parallel-input" type="number" id="decodeTpInput" value="2" min="1" max="256" step="1">
             </div>
+            <div class="parallel-item">
+              <span class="parallel-label">PP</span>
+              <input class="text-input parallel-input" type="number" id="decodePpInput" value="1" min="1" max="64" step="1">
+            </div>
             <div class="parallel-item" id="decodeEpItem">
               <span class="parallel-label">EP</span>
               <input class="text-input parallel-input" type="number" id="decodeEpInput" value="8" min="1" max="256" step="1">
             </div>
+            <div class="parallel-item">
+              <span class="parallel-label">CP</span>
+              <input class="text-input parallel-input" type="number" id="decodeCpInput" value="1" min="1" max="256" step="1">
+            </div>
+          </div>
+          <div class="parallel-single">
+            <span class="parallel-label-wide">Attn DP</span>
+            <input class="text-input parallel-input" type="number" id="decodeDpInput" value="1" min="1" max="256" step="1">
           </div>
         </div>
         <div class="field" id="absorptionField" style="display:none">
@@ -189,6 +212,11 @@
             <input type="checkbox" id="absorptionToggle"> MLA Absorption
           </label>
         </div>
+      </div>
+
+      <div class="field" id="idxTpField" style="display:none">
+        <label>Indexer TP <span class="field-hint" id="idxTpHint"></span></label>
+        <input class="text-input" type="number" id="idxTpInput" value="8" min="1" max="256" step="1">
       </div>
 
       <div class="field-sep"></div>
