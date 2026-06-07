@@ -55,6 +55,12 @@
 --bar-indexer:   #e03131;
   --bar-fixed:     #2b8a3e;
   --bar-fixed-alt: #40c057;
+  --bar-attn:       #4263eb;
+  --bar-ffn-dense:  #f59e0b;
+  --bar-ffn-shared: #e67700;
+  --bar-ffn-expert: #e03131;
+  --bar-embed:      #9c36b5;
+  --bar-kv:         #0c8599;
 }
 
 /* ── Dark theme overrides ── */
@@ -84,6 +90,12 @@
   --bar-indexer:   #f03e3e;
   --bar-fixed:     #40c057;
   --bar-fixed-alt: #69db7c;
+  --bar-attn:       #5c7cfa;
+  --bar-ffn-dense:  #fbbf24;
+  --bar-ffn-shared: #f59e0b;
+  --bar-ffn-expert: #ef4444;
+  --bar-embed:      #c084fc;
+  --bar-kv:         #15aabf;
 }
 
 /* ── Reset ── */
